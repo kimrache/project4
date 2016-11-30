@@ -1,8 +1,355 @@
-# #Frames per second manipulation
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+#hi
+
+import random
+import sys
+
+import pygame
+from pygame.locals import Rect, DOUBLEBUF, QUIT, K_ESCAPE, KEYDOWN, K_DOWN, \
+    K_LEFT, K_UP, K_RIGHT, KEYUP, K_LCTRL, K_RETURN, FULLSCREEN
+
+X_MAX = 800
+Y_MAX = 600
+
+LEFT, RIGHT, UP, DOWN = 0, 1, 3, 4
+START, STOP = 0, 1
+
+everything = pygame.sprite.Group()
+
+class Star(pygame.sprite.Sprite):
+    def __init__(self, x, y):
+        super(Star, self).__init__()
+        self.image = pygame.Surface((2, 2))
+        pygame.draw.circle(self.image,
+                           (128, 128, 200),
+                           (0, 0),
+                           2,
+                           0)
+        self.rect = self.image.get_rect()
+        self.rect.center = (x, y)
+        self.velocity = 1
+        self.size = 1
+        self.colour = 128
+
+    def accelerate(self):
+        self.image = pygame.Surface((1, self.size))
+
+        if self.size < 200:
+            self.size += 4
+            self.colour += 20
+            if self.colour >= 200:
+                self.colour = random.randint(180, 200)
+        else:
+            self.colour -= 30
+            if self.colour <= 20:
+                self.colour = random.randrange(20)
+
+        pygame.draw.line(self.image, (self.colour, self.colour, self.colour),
+                         (0, 0), (0, self.size))
+
+        if self.velocity < Y_MAX / 3:
+            self.velocity += 1
+
+        # x, y = self.rect.center
+        # self.rect.center = random.randrange(X_MAX), y
+
+    def update(self):
+        x, y = self.rect.center
+        if self.rect.center[1] > Y_MAX:
+            self.rect.center = (x, 0)
+        else:
+            self.rect.center = (x, y + self.velocity)
+
+
+class BulletSprite(pygame.sprite.Sprite):
+    def __init__(self, x, y):
+        super(BulletSprite, self).__init__()
+        self.image = pygame.Surface((10, 10))
+        for i in range(5, 0, -1):
+            color = 255.0 * float(i)/5
+            pygame.draw.circle(self.image,
+                               (0, 0, color),
+                               (5, 5),
+                               i,
+                               0)
+        self.rect = self.image.get_rect()
+        self.rect.center = (x, y-25)
+
+    def update(self):
+        x, y = self.rect.center
+        y -= 20
+        self.rect.center = x, y
+        if y <= 0:
+            self.kill()
+
+
+class EnemySprite(pygame.sprite.Sprite):
+    def __init__(self, x_pos, groups):
+        super(EnemySprite, self).__init__()
+        self.image = pygame.image.load("Pikachu.bmp").convert_alpha()
+        self.rect = self.image.get_rect()
+        self.rect.center = (x_pos, 0)
+
+        self.velocity = random.randint(3, 10)
+
+        self.add(groups)
+        # self.explosion_sound = pygame.mixer.Sound("Arcade Explo A.wav")
+        # self.explosion_sound.set_volume(0.4)
+
+    def update(self):
+        x, y = self.rect.center
+
+        if y > Y_MAX:
+            x, y = random.randint(0, X_MAX), 0
+            self.velocity = random.randint(3, 10)
+        else:
+            x, y = x, y + self.velocity
+
+        self.rect.center = x, y
+
+    def kill(self):
+        x, y = self.rect.center
+        # if pygame.mixer.get_init():
+        # self.explosion_sound.play(maxtime=1000)
+        # Explosion(x, y)
+        super(EnemySprite, self).kill()
+
+
+class StatusSprite(pygame.sprite.Sprite):
+    def __init__(self, ship, groups):
+        super(StatusSprite, self).__init__()
+        self.image = pygame.Surface((X_MAX, 30))
+        self.rect = self.image.get_rect()
+        self.rect.bottomleft = 0, Y_MAX
+
+        default_font = pygame.font.get_default_font()
+        self.font = pygame.font.Font(default_font, 20)
+
+        self.ship = ship
+        self.add(groups)
+
+    def update(self):
+        score = self.font.render("Health : {} Score : {}".format(
+            self.ship.health, self.ship.score), True, (150, 50, 50))
+        self.image.fill((0, 0, 0))
+        self.image.blit(score, (0, 0))
+
+
+class ShipSprite(pygame.sprite.Sprite):
+    def __init__(self, groups, weapon_groups):
+        super(ShipSprite, self).__init__()
+        self.image = pygame.image.load("Ash_Ketchum.bmp").convert_alpha()
+        self.rect = self.image.get_rect()
+        self.rect.center = (X_MAX/2, Y_MAX - 40)
+        self.dx = self.dy = 0
+        self.firing = self.shot = False
+        self.health = 100
+        self.score = 0
+
+        self.groups = [groups, weapon_groups]
+
+        self.mega = 1
+
+        self.autopilot = False
+        self.in_position = False
+        self.velocity = 2
+
+    def update(self):
+        x, y = self.rect.center
+
+        if not self.autopilot:
+            # Handle movement
+            self.rect.center = x + self.dx, y + self.dy
+
+            # Handle firing
+            if self.firing:
+                self.shot = BulletSprite(x, y)
+                self.shot.add(self.groups)
+
+            if self.health < 0:
+                self.kill()
+        else:
+            if not self.in_position:
+                if x != X_MAX/2:
+                    x += (abs(X_MAX/2 - x)/(X_MAX/2 - x)) * 2
+                if y != Y_MAX - 100:
+                    y += (abs(Y_MAX - 100 - y)/(Y_MAX - 100 - y)) * 2
+
+                if x == X_MAX/2 and y == Y_MAX - 100:
+                    self.in_position = True
+            else:
+                y -= self.velocity
+                self.velocity *= 1.5
+                if y <= 0:
+                    y = -30
+            self.rect.center = x, y
+
+    def steer(self, direction, operation):
+        v = 10
+        if operation == START:
+            if direction in (UP, DOWN):
+                self.dy = {UP: -v,
+                           DOWN: v}[direction]
+
+            if direction in (LEFT, RIGHT):
+                self.dx = {LEFT: -v,
+                           RIGHT: v}[direction]
+
+        if operation == STOP:
+            if direction in (UP, DOWN):
+                self.dy = 0
+            if direction in (LEFT, RIGHT):
+                self.dx = 0
+
+    def shoot(self, operation):
+        if operation == START:
+            self.firing = True
+        if operation == STOP:
+            self.firing = False
+
+def main():
+    game_over = False
+
+    pygame.font.init()
+    pygame.mixer.init()
+    screen = pygame.display.set_mode((X_MAX, Y_MAX), DOUBLEBUF)
+    enemies = pygame.sprite.Group()
+    weapon_fire = pygame.sprite.Group()
+
+    empty = pygame.Surface((X_MAX, Y_MAX))
+    clock = pygame.time.Clock()
+
+    ship = ShipSprite(everything, weapon_fire)
+    ship.add(everything)
+
+    status = StatusSprite(ship, everything)
+
+    deadtimer = 30
+    credits_timer = 250
+
+    for i in range(10):
+        pos = random.randint(0, X_MAX)
+        EnemySprite(pos, [everything, enemies])
+
+    # # Get some music
+    # if pygame.mixer.get_init():
+    #     pygame.mixer.music.load("DST-AngryMod.mp3")
+    #     pygame.mixer.music.set_volume(0.8)
+    #     pygame.mixer.music.play(-1)
+
+    while True:
+        clock.tick(30)
+        # Check for input
+        for event in pygame.event.get():
+            if event.type == QUIT or (
+                    event.type == KEYDOWN and event.key == K_ESCAPE):
+                sys.exit()
+            if not game_over:
+                if event.type == KEYDOWN:
+                    if event.key == K_DOWN:
+                        ship.steer(DOWN, START)
+                    if event.key == K_LEFT:
+                        ship.steer(LEFT, START)
+                    if event.key == K_RIGHT:
+                        ship.steer(RIGHT, START)
+                    if event.key == K_UP:
+                        ship.steer(UP, START)
+                    if event.key == K_LCTRL:
+                        ship.shoot(START)
+                    if event.key == K_RETURN:
+                        if ship.mega:
+                            ship.mega -= 1
+                            for i in enemies:
+                                i.kill()
+
+                if event.type == KEYUP:
+                    if event.key == K_DOWN:
+                        ship.steer(DOWN, STOP)
+                    if event.key == K_LEFT:
+                        ship.steer(LEFT, STOP)
+                    if event.key == K_RIGHT:
+                        ship.steer(RIGHT, STOP)
+                    if event.key == K_UP:
+                        ship.steer(UP, STOP)
+                    if event.key == K_LCTRL:
+                        ship.shoot(STOP)
+
+        # Check for impact
+        hit_ships = pygame.sprite.spritecollide(ship, enemies, True)
+        for i in hit_ships:
+            ship.health -= 15
+
+        if ship.health < 0:
+            if deadtimer:
+                deadtimer -= 1
+            else:
+                #sys.exit()
+                game_over = True
+
+        # Check for successful attacks
+        hit_ships = pygame.sprite.groupcollide(
+            enemies, weapon_fire, True, True)
+        for k, v in hit_ships.items():
+            k.kill()
+            for i in v:
+                i.kill()
+                ship.score += 10
+
+        if len(enemies) < 20 and not game_over:
+            pos = random.randint(0, X_MAX)
+            EnemySprite(pos, [everything, enemies])
+
+        # Check for game over
+        if ship.score > 1000:
+            game_over = True
+            for i in enemies:
+                i.kill()
+
+            ship.autopilot = True
+            ship.shoot(STOP)
+
+        if game_over:
+            # initialize font; must be called after 'pygame.init()' to avoid 'Font not Initialized' error
+            myfont = pygame.font.SysFont("monospace", 15)
+
+            # render text
+            label = myfont.render("Game Over!", 1, (255,255,0))
+            screen.blit(label, (100, 100))
+            #pygame.mixer.music.fadeout(8000)
+            for i in stars:
+                i.accelerate()
+            if credits_timer:
+                credits_timer -= 1
+            else:
+                sys.exit()
+
+        # Update sprites
+        everything.clear(screen, empty)
+        everything.update()
+        everything.draw(screen)
+        pygame.display.flip()
+
+
+if __name__ == '__main__':
+    main()
+
+
+
+
+
+
+# #!/usr/bin/env python
+# # -*- coding: utf-8 -*-
 
 # #required 
 # import pygame
+# import sys
 # pygame.init();
+
+# X_MAX = 800
+# Y_MAX = 600
 
 # #create colors
 # white = (255,255,255)
@@ -61,321 +408,3 @@
 # quit()		
 
 
-#pacman
-
-# import library called pygame
-import pygame
-
-# initialize the game engine
-pygame.init()
-
-# Define some colors
-BLACK = (0, 0, 0)
-WHITE = (255, 255, 255)
-GREEN = (0, 255, 0)
-RED = (255, 0, 0)
-BLUE = (0, 0, 255)
-
-pygame.init()
-
-# Set the width and height of the screen [width, height]
-width = 500
-height = 600
-size = (width, height)
-screen = pygame.display.set_mode(size)
-
-pygame.display.set_caption("My Game")
-
-# Loop until the user clicks the close button.
-done = False
-
-# Used to manage how fast the screen updates
-clock = pygame.time.Clock()
-
-# List containing all sprites in the program to draw them
-all_sprites_list = pygame.sprite.Group()
-
-
-# Define wall
-class Wall(pygame.sprite.Sprite):
-    # initialises parameters of a wall
-    def __init__(self, corner_x, corner_y, width, height, color):
-        super().__init__()  # inherits all parameters of a sprite
-        self.width = width
-        self.height = height
-        self.color = color
-        # set the image of the wall
-        self.image = pygame.Surface([width, height])
-        self.image.fill(color)
-        self.rect = self.image.get_rect()  # finds the rectangle object that has the dimensions of the image
-        self.rect.x = corner_x
-        self.rect.y = corner_y
-
-    # draws a wall
-    def draw(self):
-        pygame.draw.rect(screen, self.color, [self.rect.x, self.rect.y, self.width, self.height])
-
-
-# Define coins to collect
-class coin(pygame.sprite.Sprite):
-    # initialses parameters of the coin
-    def __init__(self, center_x, center_y, radius, color):
-        super().__init__()
-
-        self.image = pygame.Surface([width, height])
-        self.image.fill(WHITE)
-        self.image.set_colorkey(WHITE)
-        self.color = color
-        self.radius = radius
-
-        pygame.draw.circle(self.image, self.color, (center_x, center_y), self.radius, 0)
-
-        self.rect = self.image.get_rect()
-        self.rect.x = center_x
-        self.rect.y = center_y
-
-    def draw(self):
-        pygame.draw.circle(self.image, self.color, (center_x, center_y), self.radius, 0)
-
-
-# this is the list of all walls in the game
-wall_list = pygame.sprite.Group()
-# this is the list of all coins in the game
-coin_list = pygame.sprite.Group()
-
-# Parameters of the map
-widthofwalls = 20
-heightofwalls = 20
-colorofwalls = RED
-colorofcoins = BLUE
-
-
-# Function for adding the map from a given string
-def adding_map(mapdescription, heightofwalls, widthofwalls, colorofwalls):
-    # For each row, starting from 0
-    current_row = 0
-    for each_string in mapdescription:
-        # For each column
-        for i in range(0, len(each_string)):
-            # Letter W means wall
-            if each_string[i] == "W":
-                newWall = Wall(i * widthofwalls, current_row * heightofwalls, widthofwalls, heightofwalls, colorofwalls)
-                wall_list.add(newWall)
-                all_sprites_list.add(newWall)
-            # A . means a coin
-            elif each_string[i] == ".":
-                newCoin = coin(i * widthofwalls, current_row * heightofwalls, int(widthofwalls / 4), colorofcoins)
-                coin_list.add(newCoin)
-                all_sprites_list.add(newCoin)
-        current_row += 1
-
-        # Declaration of the maze
-
-
-basicmap = ["WWWWWWWWWWWWWWWWWWWWWWWWW",
-            "W    .      W           W",
-            "W WWW WWWWW W WWWWW WWW W",
-            "W WWW WWWWW W WWWWW WWW W",
-            "W.........              W",
-            "W WWW W WWWWWWWWW W WWW W",
-            "W     W     W     W     W",
-            "WWWWW WWWWW W WWWWW WWWWW",
-            "    W W           W W    ",
-            "WWWWW W WWWWWWWWW W WWWWW",
-            "        W       W        ",
-            "WWWWW W WWWWWWWWW W WWWWW",
-            "    W W           W W    ",
-            "WWWWW W WWWWWWWWW W WWWWW",
-            "W           W           W",
-            "W WWW WWWWW W WWWWW WWW W",
-            "W   W               W   W",
-            "WWW W W WWWWWWWWW W W WWW",
-            "W     W     W     W     W",
-            "W WWWWWWWWW W WWWWWWWWW W",
-            "W                       W",
-            "WWWWWWWWWWWWWWWWWWWWWWWWW"]
-adding_map(basicmap, heightofwalls, widthofwalls, colorofwalls)
-
-
-# Define moving object
-class moving_object(pygame.sprite.Sprite):
-    # initialises theobject
-    def __init__(self, speed, direction, height, width, color):
-        super().__init__()
-        self.speed = speed
-        self.direction = direction
-        self.height = height
-        self.width = width
-        self.color = color
-        # set the image of Pacman
-        self.image = pygame.Surface([width, height])
-        self.image.fill(color)
-        # fetches the rectangle in which the image is enclosed
-        self.rect = self.image.get_rect()
-
-    # moves the object
-    def move(self):
-        # moves upwards
-        if self.direction == 1:
-            self.rect.y -= self.speed
-        # moves right
-        if self.direction == 2:
-            self.rect.x += self.speed
-        # moves down
-        if self.direction == 3:
-            self.rect.y += self.speed
-        # moves left
-        if self.direction == 4:
-            self.rect.x -= self.speed
-
-    # allows the direction of movement to be changed
-    def new_direction(self, newdirection):
-        self.direction = newdirection
-
-    # returns direction
-    def get_direction(self):
-        return self.direction
-
-    # returns speed
-    def get_speed(self):
-        return self.speed
-
-    # returns coordinates
-    def get_coordinates(self):
-        return (self.rect.x, self.rect.y)
-
-    def draw(self):
-        pygame.draw.rect(screen, self.color, [self.rect.x, self.rect.y, self.width, self.height])
-
-    def moving_object_detecting_collisions(self, wall_list):
-        # Checks what would happen if the object would be moved as intended
-        self.move()
-        # If there is a collision, moves the object back in the opposite direction
-        # Object ends up in the same position as it was before the collision
-        if pygame.sprite.spritecollide(self, wall_list, False):
-            if self.get_direction() == 3:
-                self.new_direction(1)
-                self.move()
-                self.new_direction(3)
-            if self.get_direction() == 1:
-                self.new_direction(3)
-                self.move()
-                self.new_direction(1)
-            if self.get_direction() == 2:
-                self.new_direction(4)
-                self.move()
-                self.new_direction(2)
-            if self.get_direction() == 4:
-                self.new_direction(2)
-                self.move()
-                self.new_direction(4)
-
-    def signalfromkeyboard(self, event):
-        # find if it was an arrow and adjust the next direction accordingly
-        # Pacman now moves right
-        if event.key == pygame.K_RIGHT:
-            newdirection = 2
-            self.new_direction(newdirection)
-        # Pacman now moves up
-        if event.key == pygame.K_UP:
-            newdirection = 1
-            self.new_direction(newdirection)
-        # Pacman now moves down
-        if event.key == pygame.K_DOWN:
-            newdirection = 3
-            self.new_direction(newdirection)
-        # Pacman now moves left
-        if event.key == pygame.K_LEFT:
-            newdirection = 4
-            self.new_direction(newdirection)
-
-    def wouldcollide(self, wall_list):
-        self.move()
-        if pygame.sprite.spritecollide(self, wall_list, False):
-            return True
-        else:
-            return False
-
-
-initxPac = 20
-inityPac = 20
-initspeedPac = 1
-initdirectionPac = 2
-heightPac = 20
-widthPac = 20
-colorPac = BLACK
-
-Pacman = moving_object(initspeedPac, initdirectionPac, widthPac, heightPac, colorPac)
-Pacman.rect.x = initxPac
-Pacman.rect.y = inityPac
-
-
-# Will be used for implementing changing direction as it is in original Pacman
-def createacopyofPacman(Pacman):
-    Pacmanexampleforcollisions = moving_object(Pacman.get_speed(), Pacman.get_direction(), widthPac, heightPac,
-                                               colorPac)
-    Pacmanexampleforcollisions.rect.x = Pacman.rect.x
-    Pacmanexampleforcollisions.rect.y = Pacman.rect.y
-    return Pacmanexampleforcollisions
-
-
-Pacmanexampleforcollisions = createacopyofPacman(Pacman)
-
-# Two direction indicators, one for the current, one for the one that is to be the next one
-currentdirection = initdirectionPac
-newdirection = currentdirection
-
-all_sprites_list.add(Pacman)
-# -------- Main Program Loop -----------
-while not done:
-
-    # --- Main event loop
-    for event in pygame.event.get():
-
-        if event.type == pygame.QUIT:
-            done = True
-        # user pressed down on a key
-        elif event.type == pygame.KEYDOWN:
-            Pacmanexampleforcollisions = createacopyofPacman(Pacman)
-            Pacmanexampleforcollisions.signalfromkeyboard(event)
-            newdirection = Pacmanexampleforcollisions.get_direction()
-
-    # --- Game logic should go here
-
-    # Pacman moves every step in the game
-    # If there was a change of the direction comming from the user
-    if currentdirection != newdirection:
-        # Then uses the example of Pacman to verify if turn possible
-        Pacmanexampleforcollisions.new_direction(newdirection)
-        # Moves this example
-        Pacmanexampleforcollisions.move()
-        # And checks if there would be a collision
-        if Pacmanexampleforcollisions.wouldcollide(wall_list):
-            # If so, moves Pacman as if there was nothing from the user
-            Pacman.moving_object_detecting_collisions(wall_list)
-            # And moves the example Pacman as well
-            Pacmanexampleforcollisions = createacopyofPacman(Pacman)
-        else:
-            # If no collision, checks the direction of movement of Pacman
-            Pacman.new_direction(newdirection)
-            # And moves Pacman
-            Pacman.moving_object_detecting_collisions(wall_list)
-            # Now the Pacman moves in the direction in which the user wants it to
-            currentdirection = newdirection
-    # If there is no signal from the user, just moves the Pacman preventing collisions
-    else:
-        Pacman.moving_object_detecting_collisions(wall_list)
-    # screen cleared to white
-    screen.fill(WHITE)
-
-    # --- Drawing
-    all_sprites_list.draw(screen)
-
-    # --- Go ahead and update the screen with what we've drawn.
-    pygame.display.flip()
-
-    # --- Limit to 60 frames per second
-    clock.tick(60)
-
-# Close the window and quit.
-pygame.quit()

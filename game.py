@@ -6,6 +6,7 @@ import sys
 import pygame
 from pygame import *
 from pygame.sprite import *
+
 DELAY = 1000;
 white = (255,255,255)
 X_MAX = 800
@@ -57,21 +58,21 @@ class PikachuSprite(Sprite):
         x, y = self.rect.center
         super(PikachuSprite, self).kill()
 
-# class MewSprite(Sprite):
-# 	def __init__(self):
-# 		super(MewSprite, self).__init__()
-# 		self.image = pygame.image.load("Mew.bmp").convert_alpha()
-# 		self.rect = self.image.get_rect()
+class MewSprite(Sprite):
+    def __init__(self):
+        super(MewSprite, self).__init__()
+        self.image = pygame.image.load("Mew.bmp").convert_alpha()
+        self.rect = self.image.get_rect()
 
-#     # move mew to a new random location
-#     def move(self):
-#         randX = randint(0, 600)
-#         randY = randint(0, 400)
-#         self.rect.center = (randX,randY)
+    # move mew to a new random location
+    def move(self):
+        randX = random.randint(0, 500)
+        randY = random.randint(0, 300)
+        self.rect.center = (randX,randY)
 
-#     def kill(self):
-#     	x, y = self.rect.center
-#     	super(MewSprite, self).kill()
+    def kill(self):
+    	x, y = self.rect.center
+    	super(MewSprite, self).kill()
 
 class StatusSprite(Sprite):
     def __init__(self, ship, groups):
@@ -153,8 +154,8 @@ def main():
 	pygame.font.init()
 	pygame.mixer.init()
 	screen = pygame.display.set_mode((X_MAX, Y_MAX))
+	screen.fill(white)
 	display.set_caption('Catch the Pikachus!')
-	# mew = Mew()
 	enemies = pygame.sprite.Group()
 	weapon_fire = pygame.sprite.Group()
 
@@ -164,11 +165,10 @@ def main():
 
 	ash = AshSprite(everything, weapon_fire)
 	ash.add(everything)
-
+	mew = MewSprite()
+	mew.add(everything)
 	status = StatusSprite(ash, everything)
 
-	deadtimer = 30
-	credits_timer = 250
 
 	for i in range(10):
 	    pos = random.randint(0, X_MAX)
@@ -211,8 +211,8 @@ def main():
 	        if event.key == K_LCTRL:
 	            ash.shoot(STOP)
 
-	    # if event.type == USEREVENT + 1:
-	    # 	MewSprite.move()
+	    if event.type >= USEREVENT + 1:
+	    	mew.move()
 
 
 	    # Check for impact
@@ -235,8 +235,13 @@ def main():
 	            i.kill()
 	            ash.score += 10
 
-	    # caught_mew = pygame.sprite.groupcollide(
-	    # 	)
+	    caught_mew = pygame.sprite.spritecollide(mew, weapon_fire, True)
+	    for i in caught_mew:
+	    	ash.score += 20
+	    	mew.move()
+	    	time.set_timer(USEREVENT + 1, DELAY)
+
+
 
 	    if len(enemies) < 5 and not game_over:
 	        pos = random.randint(0, X_MAX)
@@ -248,7 +253,6 @@ def main():
 
 	    if game_over:
 	        # initialize font; must be called after 'pygame.init()' to avoid 'Font not Initialized' error
-	        pygame.init()
 	        myfont = pygame.font.SysFont("monospace", 15)
 
 	        # render text
@@ -258,12 +262,14 @@ def main():
 	            credits_timer -= 1
 	        else:
 	            sys.exit()
-	    screen.fill(white)
+	    
 	    # Update sprites
-	    everything.clear(screen, empty)
+	    # everything.clear(screen, empty)
 	    everything.update()
 	    everything.draw(screen)
+	    display.update()
 	    # pygame.surface.fill(white)
+	   
 	    pygame.display.flip()
 	    # screen.fill(white)
 

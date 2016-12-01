@@ -1,14 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-#hi
+
 
 import random
 import sys
 
 import pygame
-from pygame.locals import Rect, DOUBLEBUF, QUIT, K_ESCAPE, KEYDOWN, K_DOWN, \
-    K_LEFT, K_UP, K_RIGHT, KEYUP, K_LCTRL, K_RETURN, FULLSCREEN
+from pygame import *
+from pygame.sprite import *
 
 X_MAX = 800
 Y_MAX = 600
@@ -18,68 +18,16 @@ START, STOP = 0, 1
 
 everything = pygame.sprite.Group()
 
-class Star(pygame.sprite.Sprite):
+class PokeballSprite(pygame.sprite.Sprite):
     def __init__(self, x, y):
-        super(Star, self).__init__()
-        self.image = pygame.Surface((2, 2))
-        pygame.draw.circle(self.image,
-                           (128, 128, 200),
-                           (0, 0),
-                           2,
-                           0)
+        super(PokeballSprite, self).__init__()
+        self.image = pygame.image.load("Pokeball.bmp").convert_alpha()
         self.rect = self.image.get_rect()
-        self.rect.center = (x, y)
-        self.velocity = 1
-        self.size = 1
-        self.colour = 128
-
-    def accelerate(self):
-        self.image = pygame.Surface((1, self.size))
-
-        if self.size < 200:
-            self.size += 4
-            self.colour += 20
-            if self.colour >= 200:
-                self.colour = random.randint(180, 200)
-        else:
-            self.colour -= 30
-            if self.colour <= 20:
-                self.colour = random.randrange(20)
-
-        pygame.draw.line(self.image, (self.colour, self.colour, self.colour),
-                         (0, 0), (0, self.size))
-
-        if self.velocity < Y_MAX / 3:
-            self.velocity += 1
-
-        # x, y = self.rect.center
-        # self.rect.center = random.randrange(X_MAX), y
+        self.rect.center = (x, y-10)
 
     def update(self):
         x, y = self.rect.center
-        if self.rect.center[1] > Y_MAX:
-            self.rect.center = (x, 0)
-        else:
-            self.rect.center = (x, y + self.velocity)
-
-
-class BulletSprite(pygame.sprite.Sprite):
-    def __init__(self, x, y):
-        super(BulletSprite, self).__init__()
-        self.image = pygame.Surface((10, 10))
-        for i in range(5, 0, -1):
-            color = 255.0 * float(i)/5
-            pygame.draw.circle(self.image,
-                               (0, 0, color),
-                               (5, 5),
-                               i,
-                               0)
-        self.rect = self.image.get_rect()
-        self.rect.center = (x, y-25)
-
-    def update(self):
-        x, y = self.rect.center
-        y -= 20
+        y -= 15
         self.rect.center = x, y
         if y <= 0:
             self.kill()
@@ -120,7 +68,7 @@ class EnemySprite(pygame.sprite.Sprite):
 class StatusSprite(pygame.sprite.Sprite):
     def __init__(self, ship, groups):
         super(StatusSprite, self).__init__()
-        self.image = pygame.Surface((X_MAX, 30))
+        self.image = pygame.Surface((X_MAX, Y_MAX))
         self.rect = self.image.get_rect()
         self.rect.bottomleft = 0, Y_MAX
 
@@ -142,7 +90,7 @@ class ShipSprite(pygame.sprite.Sprite):
         super(ShipSprite, self).__init__()
         self.image = pygame.image.load("Ash_Ketchum.bmp").convert_alpha()
         self.rect = self.image.get_rect()
-        self.rect.center = (X_MAX/2, Y_MAX - 40)
+        self.rect.center = (X_MAX/2, Y_MAX - 10)
         self.dx = self.dy = 0
         self.firing = self.shot = False
         self.health = 100
@@ -165,7 +113,7 @@ class ShipSprite(pygame.sprite.Sprite):
 
             # Handle firing
             if self.firing:
-                self.shot = BulletSprite(x, y)
+                self.shot = PokeballSprite(x, y)
                 self.shot.add(self.groups)
 
             if self.health < 0:
@@ -211,10 +159,10 @@ class ShipSprite(pygame.sprite.Sprite):
 
 def main():
     game_over = False
-
+    pygame.init()
     pygame.font.init()
     pygame.mixer.init()
-    screen = pygame.display.set_mode((X_MAX, Y_MAX), DOUBLEBUF)
+    screen = pygame.display.set_mode((X_MAX, Y_MAX))
     enemies = pygame.sprite.Group()
     weapon_fire = pygame.sprite.Group()
 
@@ -243,9 +191,9 @@ def main():
         clock.tick(30)
         # Check for input
         for event in pygame.event.get():
-            if event.type == QUIT or (
-                    event.type == KEYDOWN and event.key == K_ESCAPE):
-                sys.exit()
+            if event.type == QUIT:
+                quit()
+                break
             if not game_over:
                 if event.type == KEYDOWN:
                     if event.key == K_DOWN:
@@ -318,8 +266,8 @@ def main():
             label = myfont.render("Game Over!", 1, (255,255,0))
             screen.blit(label, (100, 100))
             #pygame.mixer.music.fadeout(8000)
-            for i in stars:
-                i.accelerate()
+            # for i in stars:
+            #     i.accelerate()
             if credits_timer:
                 credits_timer -= 1
             else:
@@ -334,77 +282,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-
-
-
-
-
-# #!/usr/bin/env python
-# # -*- coding: utf-8 -*-
-
-# #required 
-# import pygame
-# import sys
-# pygame.init();
-
-# X_MAX = 800
-# Y_MAX = 600
-
-# #create colors
-# white = (255,255,255)
-# black = (0,0,0)
-# red = (255, 0, 0)
-# green = (0, 255, 0)
-# blue = (0, 0, 255)
-
-# #position vars
-# x_pos = 0
-# y_pos = 0
-# x_delta = 0
-# y_delta = 0
-# clock = pygame.time.Clock()
-
-# #create a surface
-# gameDisplay = pygame.display.set_mode((800,600)) #initialize with a tuple
-
-# #lets add a title, aka "caption"
-# pygame.display.set_caption("Frames per second")
-# pygame.display.update()		#only updates portion specified
-
-
-
-
-# gameExit = False
-# while not gameExit:
-# 	gameDisplay.fill(white)
-
-# 	for event in pygame.event.get():
-# 		if event.type == pygame.QUIT:
-# 			gameExit = True
-
-# 	if event.type == pygame.KEYDOWN:
-# 		x_delta=0;
-# 		y_delta=0;
-# 		if event.key == pygame.K_LEFT:
-# 			x_delta -= 10
-# 		if event.key == pygame.K_RIGHT:
-# 			x_delta += 10
-# 		if event.key == pygame.K_UP:
-# 			y_delta -= 10
-# 		if event.key == pygame.K_DOWN:
-# 			y_delta += 10
-	
-# 	x_pos +=x_delta
-# 	y_pos +=y_delta
-# 	gameDisplay.fill(blue, rect=[x_pos,y_pos, 20,20])
-# 	pygame.display.update()		
-# 	clock.tick(30)
-
-
-
-# #required
-# pygame.quit()
-# quit()		
-
-

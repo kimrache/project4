@@ -1,15 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-
-
 import random
 import sys
-
 import pygame
 from pygame import *
 from pygame.sprite import *
-
+DELAY = 1000;
+white = (255,255,255)
 X_MAX = 800
 Y_MAX = 600
 
@@ -18,7 +16,7 @@ START, STOP = 0, 1
 
 everything = pygame.sprite.Group()
 
-class PokeballSprite(pygame.sprite.Sprite):
+class PokeballSprite(Sprite):
     def __init__(self, x, y):
         super(PokeballSprite, self).__init__()
         self.image = pygame.image.load("Pokeball.bmp").convert_alpha()
@@ -33,9 +31,9 @@ class PokeballSprite(pygame.sprite.Sprite):
             self.kill()
 
 
-class EnemySprite(pygame.sprite.Sprite):
+class PikachuSprite(Sprite):
     def __init__(self, x_pos, groups):
-        super(EnemySprite, self).__init__()
+        super(PikachuSprite, self).__init__()
         self.image = pygame.image.load("Pikachu.bmp").convert_alpha()
         self.rect = self.image.get_rect()
         self.rect.center = (x_pos, 0)
@@ -43,8 +41,6 @@ class EnemySprite(pygame.sprite.Sprite):
         self.velocity = random.randint(3, 10)
 
         self.add(groups)
-        # self.explosion_sound = pygame.mixer.Sound("Arcade Explo A.wav")
-        # self.explosion_sound.set_volume(0.4)
 
     def update(self):
         x, y = self.rect.center
@@ -59,13 +55,25 @@ class EnemySprite(pygame.sprite.Sprite):
 
     def kill(self):
         x, y = self.rect.center
-        # if pygame.mixer.get_init():
-        # self.explosion_sound.play(maxtime=1000)
-        # Explosion(x, y)
-        super(EnemySprite, self).kill()
+        super(PikachuSprite, self).kill()
 
+# class MewSprite(Sprite):
+# 	def __init__(self):
+# 		super(MewSprite, self).__init__()
+# 		self.image = pygame.image.load("Mew.bmp").convert_alpha()
+# 		self.rect = self.image.get_rect()
 
-class StatusSprite(pygame.sprite.Sprite):
+#     # move mew to a new random location
+#     def move(self):
+#         randX = randint(0, 600)
+#         randY = randint(0, 400)
+#         self.rect.center = (randX,randY)
+
+#     def kill(self):
+#     	x, y = self.rect.center
+#     	super(MewSprite, self).kill()
+
+class StatusSprite(Sprite):
     def __init__(self, ship, groups):
         super(StatusSprite, self).__init__()
         self.image = pygame.Surface((X_MAX, Y_MAX))
@@ -85,9 +93,9 @@ class StatusSprite(pygame.sprite.Sprite):
         self.image.blit(score, (0, 0))
 
 
-class ShipSprite(pygame.sprite.Sprite):
+class AshSprite(Sprite):
     def __init__(self, groups, weapon_groups):
-        super(ShipSprite, self).__init__()
+        super(AshSprite, self).__init__()
         self.image = pygame.image.load("Ash_Ketchum.bmp").convert_alpha()
         self.rect = self.image.get_rect()
         self.rect.center = (X_MAX/2, Y_MAX - 10)
@@ -99,40 +107,22 @@ class ShipSprite(pygame.sprite.Sprite):
         self.groups = [groups, weapon_groups]
 
         self.mega = 1
-
-        self.autopilot = False
         self.in_position = False
         self.velocity = 2
 
     def update(self):
         x, y = self.rect.center
 
-        if not self.autopilot:
-            # Handle movement
-            self.rect.center = x + self.dx, y + self.dy
+        # Handle movement
+        self.rect.center = x + self.dx, y + self.dy
 
-            # Handle firing
-            if self.firing:
-                self.shot = PokeballSprite(x, y)
-                self.shot.add(self.groups)
+        # Handle firing
+        if self.firing:
+            self.shot = PokeballSprite(x, y)
+            self.shot.add(self.groups)
 
-            if self.health < 0:
-                self.kill()
-        else:
-            if not self.in_position:
-                if x != X_MAX/2:
-                    x += (abs(X_MAX/2 - x)/(X_MAX/2 - x)) * 2
-                if y != Y_MAX - 100:
-                    y += (abs(Y_MAX - 100 - y)/(Y_MAX - 100 - y)) * 2
-
-                if x == X_MAX/2 and y == Y_MAX - 100:
-                    self.in_position = True
-            else:
-                y -= self.velocity
-                self.velocity *= 1.5
-                if y <= 0:
-                    y = -30
-            self.rect.center = x, y
+        if self.health < 0:
+            self.kill()
 
     def steer(self, direction, operation):
         v = 10
@@ -158,127 +148,127 @@ class ShipSprite(pygame.sprite.Sprite):
             self.firing = False
 
 def main():
-    game_over = False
-    pygame.init()
-    pygame.font.init()
-    pygame.mixer.init()
-    screen = pygame.display.set_mode((X_MAX, Y_MAX))
-    enemies = pygame.sprite.Group()
-    weapon_fire = pygame.sprite.Group()
+	game_over = False
+	pygame.init()
+	pygame.font.init()
+	pygame.mixer.init()
+	screen = pygame.display.set_mode((X_MAX, Y_MAX))
+	display.set_caption('Catch the Pikachus!')
+	# mew = Mew()
+	enemies = pygame.sprite.Group()
+	weapon_fire = pygame.sprite.Group()
 
-    empty = pygame.Surface((X_MAX, Y_MAX))
-    clock = pygame.time.Clock()
+	empty = pygame.Surface((X_MAX, Y_MAX))
+	# empty.fill(white)
+	clock = pygame.time.Clock()
 
-    ship = ShipSprite(everything, weapon_fire)
-    ship.add(everything)
+	ash = AshSprite(everything, weapon_fire)
+	ash.add(everything)
 
-    status = StatusSprite(ship, everything)
+	status = StatusSprite(ash, everything)
 
-    deadtimer = 30
-    credits_timer = 250
+	deadtimer = 30
+	credits_timer = 250
 
-    for i in range(10):
-        pos = random.randint(0, X_MAX)
-        EnemySprite(pos, [everything, enemies])
+	for i in range(10):
+	    pos = random.randint(0, X_MAX)
+	    PikachuSprite(pos, [everything, enemies])
 
-    # # Get some music
-    # if pygame.mixer.get_init():
-    #     pygame.mixer.music.load("DST-AngryMod.mp3")
-    #     pygame.mixer.music.set_volume(0.8)
-    #     pygame.mixer.music.play(-1)
+	game_Exit = False
 
-    while True:
-        clock.tick(30)
-        # Check for input
-        for event in pygame.event.get():
-            if event.type == QUIT:
-                quit()
-                break
-            if not game_over:
-                if event.type == KEYDOWN:
-                    if event.key == K_DOWN:
-                        ship.steer(DOWN, START)
-                    if event.key == K_LEFT:
-                        ship.steer(LEFT, START)
-                    if event.key == K_RIGHT:
-                        ship.steer(RIGHT, START)
-                    if event.key == K_UP:
-                        ship.steer(UP, START)
-                    if event.key == K_LCTRL:
-                        ship.shoot(START)
-                    if event.key == K_RETURN:
-                        if ship.mega:
-                            ship.mega -= 1
-                            for i in enemies:
-                                i.kill()
+	time.set_timer(USEREVENT + 1, DELAY)
 
-                if event.type == KEYUP:
-                    if event.key == K_DOWN:
-                        ship.steer(DOWN, STOP)
-                    if event.key == K_LEFT:
-                        ship.steer(LEFT, STOP)
-                    if event.key == K_RIGHT:
-                        ship.steer(RIGHT, STOP)
-                    if event.key == K_UP:
-                        ship.steer(UP, STOP)
-                    if event.key == K_LCTRL:
-                        ship.shoot(STOP)
+	while True:
+	    clock.tick(30)
+	    # Check for input
+	    for event in pygame.event.get():
+	        if event.type == QUIT:
+	            pygame.quit()
+	            quit()
+	            break
 
-        # Check for impact
-        hit_ships = pygame.sprite.spritecollide(ship, enemies, True)
-        for i in hit_ships:
-            ship.health -= 15
+	    if event.type == KEYDOWN:
+	        if event.key == K_DOWN:
+	            ash.steer(DOWN, START)
+	        if event.key == K_LEFT:
+	            ash.steer(LEFT, START)
+	        if event.key == K_RIGHT:
+	            ash.steer(RIGHT, START)
+	        if event.key == K_UP:
+	            ash.steer(UP, START)
+	        if event.key == K_LCTRL:
+	            ash.shoot(START)
 
-        if ship.health < 0:
-            if deadtimer:
-                deadtimer -= 1
-            else:
-                #sys.exit()
-                game_over = True
+	    if event.type == KEYUP:
+	        if event.key == K_DOWN:
+	            ash.steer(DOWN, STOP)
+	        if event.key == K_LEFT:
+	            ash.steer(LEFT, STOP)
+	        if event.key == K_RIGHT:
+	            ash.steer(RIGHT, STOP)
+	        if event.key == K_UP:
+	            ash.steer(UP, STOP)
+	        if event.key == K_LCTRL:
+	            ash.shoot(STOP)
 
-        # Check for successful attacks
-        hit_ships = pygame.sprite.groupcollide(
-            enemies, weapon_fire, True, True)
-        for k, v in hit_ships.items():
-            k.kill()
-            for i in v:
-                i.kill()
-                ship.score += 10
+	    # if event.type == USEREVENT + 1:
+	    # 	MewSprite.move()
 
-        if len(enemies) < 20 and not game_over:
-            pos = random.randint(0, X_MAX)
-            EnemySprite(pos, [everything, enemies])
 
-        # Check for game over
-        if ship.score > 1000:
-            game_over = True
-            for i in enemies:
-                i.kill()
+	    # Check for impact
+	    hit_ash = pygame.sprite.spritecollide(ash, enemies, True)
+	    for i in hit_ash:
+	        ash.health -= 15
 
-            ship.autopilot = True
-            ship.shoot(STOP)
+	    if ash.health < 0:
+	        if deadtimer:
+	            deadtimer -= 1
+	        else:
+	            game_over = True
 
-        if game_over:
-            # initialize font; must be called after 'pygame.init()' to avoid 'Font not Initialized' error
-            myfont = pygame.font.SysFont("monospace", 15)
+	    # Check for successful attacks
+	    hit_ships = pygame.sprite.groupcollide(
+	        enemies, weapon_fire, True, True)
+	    for k, v in hit_ships.items():
+	        k.kill()
+	        for i in v:
+	            i.kill()
+	            ash.score += 10
 
-            # render text
-            label = myfont.render("Game Over!", 1, (255,255,0))
-            screen.blit(label, (100, 100))
-            #pygame.mixer.music.fadeout(8000)
-            # for i in stars:
-            #     i.accelerate()
-            if credits_timer:
-                credits_timer -= 1
-            else:
-                sys.exit()
+	    # caught_mew = pygame.sprite.groupcollide(
+	    # 	)
 
-        # Update sprites
-        everything.clear(screen, empty)
-        everything.update()
-        everything.draw(screen)
-        pygame.display.flip()
+	    if len(enemies) < 5 and not game_over:
+	        pos = random.randint(0, X_MAX)
+	        PikachuSprite(pos, [everything, enemies])
+
+	    # Check for game over
+	    if ash.score > 100:
+	        game_over = True
+
+	    if game_over:
+	        # initialize font; must be called after 'pygame.init()' to avoid 'Font not Initialized' error
+	        pygame.init()
+	        myfont = pygame.font.SysFont("monospace", 15)
+
+	        # render text
+	        label = myfont.render("Game Over!", 1, (255,255,0))
+	        screen.blit(label, (100, 100))
+	        if credits_timer:
+	            credits_timer -= 1
+	        else:
+	            sys.exit()
+	    screen.fill(white)
+	    # Update sprites
+	    everything.clear(screen, empty)
+	    everything.update()
+	    everything.draw(screen)
+	    # pygame.surface.fill(white)
+	    pygame.display.flip()
+	    # screen.fill(white)
+
 
 
 if __name__ == '__main__':
     main()
+    
